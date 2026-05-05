@@ -1,0 +1,73 @@
+log:
+  stdout_log_level: INFO
+  log_file_level: INFO
+  log_file: item-processing-workflow.log
+
+apps:
+  - name: item-processing-workflow-app
+    app_base_path: .
+    app_module: solace_agent_mesh.workflow.app
+    broker:
+      dev_mode: ${SOLACE_DEV_MODE, false}
+      broker_url: ${SOLACE_BROKER_URL, ws://localhost:8080}
+      broker_username: ${SOLACE_BROKER_USERNAME, default}
+      broker_password: ${SOLACE_BROKER_PASSWORD, default}
+      broker_vpn: ${SOLACE_BROKER_VPN, default}
+      temporary_queue: ${USE_TEMPORARY_QUEUES, true}
+
+    app_config:
+      namespace: ${NAMESPACE, default}
+      name: "ItemProcessingWorkflow"
+
+      workflow:
+        description: "Call a script-backed agent, then map over its output."
+        inputSchema:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                type: string
+          required: ["items"]
+        outputSchema:
+          type: object
+          properties:
+            processed_items:
+              type: array
+              items:
+                type: string
+            final_result:
+              type: array
+              items: {}
+        nodes:
+          - id: process_items
+            type: agent
+            agent_name: "ScriptItemProcessor"
+            input:
+              items: "{{workflow.input.items}}"
+          - id: uppercase_item
+            type: agent
+            agent_name: "ScriptItemProcessor"
+            input:
+              item: "{{item}}"
+              operation: "uppercase"
+          - id: map_results
+            type: map
+            depends_on: ["process_items"]
+            items: "{{process_items.output.processed_items}}"
+            node: uppercase_item
+        outputMapping:
+          processed_items: "{{process_items.output.processed_items}}"
+          final_result: "{{map_results.output.results}}"
+
+      session_service:
+        type: sql
+        database_url: ${DATABASE_URL}
+        default_behavior: PERSISTENT
+
+      artifact_service:
+        type: ${ARTIFACT_SERVICE_TYPE, s3}
+        bucket_name: ${S3_BUCKET_NAME}
+        endpoint_url: ${S3_ENDPOINT_URL}
+        region: ${AWS_REGION, us-east-1}
+        artifact_scope: namespace

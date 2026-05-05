@@ -1,0 +1,45 @@
+deploymentMode: standalone
+id: script-item-processor
+
+serviceAccount:
+  name: script-item-processor-sa
+
+image:
+  repository: registry.example.com/solace/script-item-processor
+  tag: v1
+  pullPolicy: IfNotPresent
+
+solaceBroker:
+  url: wss://your-broker-host:443
+  username: your-client-username
+  password: your-client-password
+  vpn: your-msg-vpn
+  useTemporaryQueues: true
+
+llmService:
+  generalModelName: openai/bedrock-claude-4-5-haiku
+  endpoint: https://your-litellm-endpoint
+  apiKey: replace-me
+
+environmentVariables: {}
+
+persistence:
+  existingSecrets:
+    database: script-item-processor-db
+    s3: ""
+
+  s3:
+    endpointUrl: http://your-s3-endpoint
+    bucketName: your-bucket
+    accessKey: your-access-key
+    secretKey: your-secret-key
+    region: us-east-1
+
+resources:
+  sam:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1024Mi
