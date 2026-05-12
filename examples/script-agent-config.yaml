@@ -22,7 +22,7 @@ apps:
 
       script:
         component_module: "user_scripts.normalize_items"
-        component_base_path: "/app"
+        component_base_path: "."
         function_name: "run"
         input_mode: "smart"
         execution_timeout_seconds: 120

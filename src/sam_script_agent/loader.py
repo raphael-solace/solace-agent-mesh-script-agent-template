@@ -2,26 +2,14 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import logging
 import sys
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator
+from typing import Any, Callable, Dict
 
 from .config import ScriptHandlerConfig
 
-
-@contextmanager
-def _temporary_sys_path(path: str) -> Iterator[None]:
-    resolved = str(Path(path).resolve())
-    inserted = False
-    if resolved not in sys.path:
-        sys.path.insert(0, resolved)
-        inserted = True
-    try:
-        yield
-    finally:
-        if inserted and resolved in sys.path:
-            sys.path.remove(resolved)
+log = logging.getLogger(__name__)
 
 
 class ScriptLoader:
@@ -36,8 +24,7 @@ class ScriptLoader:
         return self._callable
 
     def _load_callable(self) -> Callable[..., Any]:
-        with _temporary_sys_path(self.config.component_base_path):
-            module = importlib.import_module(self.config.component_module)
+        module = self._import_module()
         func = getattr(module, self.config.function_name, None)
         if not callable(func):
             raise ValueError(
@@ -45,6 +32,21 @@ class ScriptLoader:
                 f"'{self.config.component_module}'."
             )
         return func
+
+    def _import_module(self):
+        module_name = self.config.component_module
+
+        try:
+            return importlib.import_module(module_name)
+        except ModuleNotFoundError:
+            pass
+
+        base_path = str(Path(self.config.component_base_path).resolve())
+        if base_path not in sys.path:
+            sys.path.insert(0, base_path)
+            log.debug("Added '%s' to sys.path for module '%s'", base_path, module_name)
+
+        return importlib.import_module(module_name)
 
     async def invoke(self, input_data: Dict[str, Any], context: Any) -> Any:
         kwargs = self._build_kwargs(input_data, context)
